@@ -22,3 +22,5 @@ class ServiceDescriptor;
 // gen prx callback
 std::string GenPrxCallback(const ::google::protobuf::ServiceDescriptor* desc, int indent);
 
+// gen coro prx callback
+std::string GenCoroPrxCallback(const ::google::protobuf::ServiceDescriptor* desc, int indent);

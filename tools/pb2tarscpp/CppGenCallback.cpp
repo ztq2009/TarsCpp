@@ -157,3 +157,113 @@ std::string GenPrxCallback(const ::google::protobuf::ServiceDescriptor* desc, in
     return out;
 }
 
+std::string GenCoroPrxCallback(const ::google::protobuf::ServiceDescriptor* desc, int indent) {
+    std::string out;
+    out.reserve(8 * 1024);
+
+    const auto& name = desc->name();
+    const auto& pkg = desc->file()->package();
+    out += LineFeed(indent);
+    out += "/* callback of coroutine async proxy for client */";
+    out += LineFeed(indent);
+    out += "class " + name + "CoroPrxCallback : public "+ name + "PrxCallback" + LineFeed(indent);
+    out += "{";
+    out += LineFeed(indent);
+    out += "public:" + LineFeed(++indent) + "virtual ~" + name + "CoroPrxCallback() {}";
+    out += LineFeed(indent);
+    out += LineFeed(indent);
+
+    //sort by method name
+   std::map<std::string, const ::google::protobuf::MethodDescriptor*> m_method;
+   for (int i = 0; i < desc->method_count(); ++i)
+   {
+       m_method[desc->method(i)->name()] = desc->method(i);
+   }
+
+   for(auto it = m_method.begin(); it != m_method.end(); ++it)
+   {
+       auto method = it->second;
+       out += GenCallbackMethod(method, pkg, indent);
+   }
+
+    out += LineFeed(indent);
+    out += LineFeed(indent);
+
+    out += "virtual const map<std::string, std::string> & getResponseContext() const { return _mRspContext; }";
+    out += LineFeed(indent);
+    out += "virtual void setResponseContext(const map<std::string, std::string> &mContext) { _mRspContext = mContext; }";
+
+    // gen onDispatch
+    out += LineFeed(indent);
+    out += LineFeed(indent);
+    out += "virtual int onDispatch(tars::ReqMessagePtr msg)";
+    out += LineFeed(indent);
+    out += "{";
+    out += LineFeed(++indent);
+    out += "static ::std::string __all[] = ";
+    out += "{";
+    out += LineFeed(++indent);
+    for(auto it = m_method.begin(); it != m_method.end(); ++it)
+    {
+        auto method = it->second;
+        out += "\"" + method->name() + "\",";
+        out += LineFeed(indent);
+    }
+    out += LineFeed(--indent);
+    out += "};" + LineFeed(indent);
+    out += "pair<string*, string*> r = equal_range(__all, __all + " + std::to_string((long long)desc->method_count()) + ", " + "std::string(msg->request.sFuncName));";
+    out += LineFeed(indent);
+    out += "if(r.first == r.second) return tars::TARSSERVERNOFUNCERR;" + LineFeed(indent);
+    out += "switch(r.first - __all)" + LineFeed(indent);
+    out += "{";
+    out += LineFeed(++indent);
+    int i = 0;
+    for(auto it = m_method.begin(); it != m_method.end(); ++it)
+    {
+        auto method = it->second;
+        out += LineFeed(indent);
+        out += "case " + std::to_string((long long)i) + ":" + LineFeed(indent);
+        out += "{" + LineFeed(++indent);
+        out += "if (msg->response->iRet != tars::TARSSERVERSUCCESS)" + LineFeed(indent);
+        out += "{" + LineFeed(++indent);
+        out += "callback_" + method->name() + "_exception(msg->response->iRet);" + LineFeed(indent);
+        out += "return msg->response->iRet;" + LineFeed(--indent) + "}";
+    
+        out += LineFeed(indent);
+        out += ToCppNamespace(method->output_type()->full_name()) + " _ret;" + LineFeed(indent);
+        out += "_ret.ParseFromArray(msg->response->sBuffer.data(), msg->response->sBuffer.size());" + LineFeed(indent);
+
+        out += "setResponseContext(msg->response->context);" + LineFeed(indent);
+        out += "callback_" + method->name() + "(_ret);" + LineFeed(indent);
+        
+        out += "return tars::TARSSERVERSUCCESS;";
+
+        out += LineFeed(--indent);
+        out += "}";
+
+        ++i;
+    }
+
+        // end switch
+    out += LineFeed(--indent);
+    out += "}";
+
+    out += LineFeed(indent);
+    out += LineFeed(indent);
+    out += "return tars::TARSSERVERNOFUNCERR;";
+    out += LineFeed(--indent);
+    out += "}"; // end of onDispatch
+    out += LineFeed(--indent);
+    out += "protected:";
+    out += LineFeed(++indent);
+    out += "map<std::string, std::string> _mRspContext;";
+    out += LineFeed(--indent);
+    out += "};"; // end of class CoroPrxCallback
+
+    out += LineFeed(indent);
+    out += "typedef tars::TC_AutoPtr<" + name + "CoroPrxCallback> " + name + "CoroPrxCallbackPtr;";
+    out += LineFeed(indent);
+
+    return out;
+}
+

@@ -4,6 +4,7 @@
 // and net/proto2/compiler/public/plugin.h for more information on plugins.
 
 #include <string>
+#include <vector>
 #include <google/protobuf/compiler/code_generator.h>
 
 namespace google
@@ -29,8 +30,8 @@ public:
 private:
     bool _CheckFile(const google::protobuf::FileDescriptor* file, std::string* error) const;
     static std::string _GenHeader(const std::string& file);
-    static std::string _GenNamespaceBegin(const std::string& ns);
-    static std::string _GenNamespaceEnd(const std::string& ns);
+    static std::string _GenNamespaceBegin(const std::vector<std::string>& ns);
+    static std::string _GenNamespaceEnd(const std::vector<std::string>& ns);
 
     static std::string _GenResponse(const std::string& filename, const std::string& content);
 };

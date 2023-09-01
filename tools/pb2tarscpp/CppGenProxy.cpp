@@ -58,6 +58,28 @@ static std::string GenAsyncCall(const ::google::protobuf::MethodDescriptor* meth
     out += "tars_invoke_async(tars::TARSNORMAL, \"" + method->name() + "\", _vc, context, _mStatus, callback);";
     out += LineFeed(--indent) + "}";
     out += LineFeed(indent);
+    out += LineFeed(indent);
+
+    return out;
+}
+
+static std::string GenCoroCall(const ::google::protobuf::MethodDescriptor* method,
+                                const std::string& name,
+                                const std::string& pkg,
+                                int indent) {
+    std::string out;
+    out.reserve(8 * 1024);
+
+    out += "void coro_" + method->name() + "(" + name + "CoroPrxCallbackPtr callback, const " +
+           ToCppNamespace(method->input_type()->full_name()) + "& req, const std::map<std::string, std::string>& context = TARS_CONTEXT())" + LineFeed(indent);
+    out += "{" + LineFeed(++indent);
+    out += "std::string _os;" + LineFeed(indent) +
+           "req.SerializeToString(&_os);" + LineFeed(indent) +
+           "std::vector<char> _vc(_os.begin(), _os.end());" + LineFeed(indent);
+    out += "std::map<std::string, std::string> _mStatus;" + LineFeed(indent);
+    out += "tars_invoke_async(tars::TARSNORMAL, \"" + method->name() + "\", _vc, context, _mStatus, callback, true);";
+    out += LineFeed(--indent) + "}";
+    out += LineFeed(indent);
 
     return out;
 }
@@ -97,6 +119,8 @@ std::string GenPrx(const ::google::protobuf::ServiceDescriptor* desc, int indent
 		out += GenSyncCall(method, pkg, indent);
 		// async method call
 		out += GenAsyncCall(method, name, pkg, indent);
+              // coro method call
+              out += GenCoroCall(method, name, pkg, indent);
 	}
 
 

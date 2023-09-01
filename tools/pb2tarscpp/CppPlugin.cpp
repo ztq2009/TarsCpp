@@ -14,6 +14,51 @@
 #include "CppGenProxy.h"
 #include "CppGenServant.h"
 
+using std::string;
+using std::vector;
+
+
+static vector<string> sepstr(const string &sStr, const string &sSep, bool withEmpty)
+{
+    vector<string> vt;
+
+    string::size_type pos = 0;
+    string::size_type pos1 = 0;
+
+    while (true) {
+        string s;
+        pos1 = sStr.find_first_of(sSep, pos);
+        if (pos1 == string::npos) {
+            if (pos + 1 <= sStr.length()) {
+                s = sStr.substr(pos);
+            }
+        }
+        else if (pos1 == pos) {
+            s = "";
+        }
+        else {
+            s = sStr.substr(pos, pos1 - pos);
+            pos = pos1;
+        }
+
+        if (withEmpty) {
+            vt.push_back(s);
+        }
+        else {
+            if (!s.empty()) {
+                vt.push_back(s);
+            }
+        }
+
+        if (pos1 == string::npos) {
+            break;
+        }
+
+        pos++;
+    }
+
+    return vt;
+}
 
 bool CppTarsGenerator::Generate(const google::protobuf::FileDescriptor *file,
                                 const std::string &parameter,
@@ -27,17 +72,19 @@ bool CppTarsGenerator::Generate(const google::protobuf::FileDescriptor *file,
     std::string content = _GenHeader(ProtoFileBaseName(file->name()));
 
     // namespace
-    content += _GenNamespaceBegin(file->package());
+    vector<string> ns = sepstr(file->package(), ".", false);
+    content += _GenNamespaceBegin(ns);
 
     const int indent = 1;
     content += LineFeed(indent);
     for (int i = 0; i < file->service_count(); ++i) {
         content += GenPrxCallback(file->service(i), indent);
+        content += GenCoroPrxCallback(file->service(i), indent);
         content += GenPrx(file->service(i), indent);
         content += GenServant(file->service(i), indent);
     }
 
-    content += _GenNamespaceEnd(file->package());
+    content += _GenNamespaceEnd(ns);
 
     // gen response to parent
     const std::string& outputFile = ProtoFileBaseName(file->name()) + ".tars.h";
@@ -89,16 +136,23 @@ std::string CppTarsGenerator::_GenHeader(const std::string& name) {
     return content;
 }
 
-std::string CppTarsGenerator::_GenNamespaceBegin(const std::string& ns) {
+std::string CppTarsGenerator::_GenNamespaceBegin(const std::vector<std::string>& ns) {
     std::string content;
-    content += "\n\nnamespace ";
-    content += ns + "\n{";
-
+    for (size_t i = 0; i < ns.size(); ++i) {
+        content += "\n\nnamespace ";
+        content += ns[i] + "\n{";
+    }
+    
     return content;
 }
 
-std::string CppTarsGenerator::_GenNamespaceEnd(const std::string& ns) {
-    return std::string("\n} // end namespace " + ns + "\n\n");
+std::string CppTarsGenerator::_GenNamespaceEnd(const std::vector<std::string>& ns) {
+    std::string content;
+    for (size_t i = 0; i < ns.size(); ++i) {
+        content += "\n} // end namespace " +  ns[i] + "\n\n";
+    }
+    
+    return content;  
 }
 
 int main(int argc, char *argv[]) {
